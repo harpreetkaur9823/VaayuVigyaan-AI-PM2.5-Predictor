@@ -113,10 +113,21 @@ with st.sidebar:
 
 
 # --------------- Section 1: HERO ---------------
-st.title("VaayuVigyaan")
-st.caption("Breathe Smarter with AI-Powered Air Intelligence")
-st.write(
-    "Real-time AQI + Predictive PM2.5 + Health guidance for India — built for clarity."
+st.markdown(
+    """
+    <div style="padding-top: 0.25rem;">
+      <div style="font-family: 'Orbitron', monospace; font-size: 2.05rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.12;">
+        VaayuVigyaan AI
+      </div>
+      <div style="margin-top: 0.35rem; font-family: 'Inter', sans-serif; font-size: 1.05rem; color: #94a3b8; line-height: 1.45;">
+        Breathe Smarter with AI Air Intelligence — see the air, act with clarity
+      </div>
+      <div style="margin-top: 0.55rem; font-family: 'Inter', sans-serif; font-size: 0.92rem; color: #7db8d8; line-height: 1.35;">
+        Real-time AQI · Predictive PM2.5 · Health guidance for India
+      </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 
