@@ -2,21 +2,24 @@
 
 Streamlit-native SaaS-style homepage.
 
-Features preserved:
-- Live insights (most polluted/cleanest/avg AQI + risk)
-- AI Predictor (sliders + ML logic preserved)
-- City Air Dashboard (AQI + PM2.5 grid)
-- AI Health Decision Panel
-- Trust section
+Requirements implemented:
+- Single hero block (3 lines only)
+- Two CTA buttons only: AI Predictor, Dashboard
+- Live snapshot section: Top polluted city, Cleanest city, Average AQI, Risk level
+- Risk level is color-coded (Green=Moderate, Orange=High, Red=Severe)
+- AI Predictor logic unchanged; layout improved
+- City dashboard clean grid (max 3 columns per row)
+- Health panel logic unchanged; spacing improved
+- Trust section clean cards
 
 Notes:
-- Background video removed to avoid fixed-position layout overlap.
-- Layout uses Streamlit components only (no large HTML layout blocks).
+- Uses custom HTML/CSS only where it improves layout/visual consistency.
 """
 
 import os
 import sys
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+
 
 import streamlit as st
 
@@ -36,7 +39,7 @@ st.set_page_config(
 inject_css()
 
 
-# Background video (full screen, fixed, behind all content)
+# Optional background video (kept behind content)
 import base64
 
 video_path = os.path.join("video", "1851190-uhd_3840_2160_25fps.mp4")
@@ -48,7 +51,6 @@ if os.path.exists(video_path):
     st.markdown(
         f"""
         <style>
-
         .video-bg {{
             position: fixed;
             top: 0;
@@ -57,17 +59,11 @@ if os.path.exists(video_path):
             height: 100%;
             object-fit: cover;
             z-index: -1;
-            opacity: 0.20;
+            opacity: 0.18;
             pointer-events: none;
         }}
-
-        /* IMPORTANT: keep Streamlit content above video */
-        .stApp {{
-            background: transparent !important;
-        }}
-
+        .stApp {{ background: transparent !important; }}
         </style>
-
         <video autoplay loop muted playsinline class="video-bg">
             <source src="data:video/mp4;base64,{video_base64}" type="video/mp4">
         </video>
@@ -76,9 +72,20 @@ if os.path.exists(video_path):
     )
 
 
-def _risk_label(avg_aqi: float) -> str:
+def _risk_category_from_aqi(aqi_value: int) -> str:
+    if aqi_value <= 150:
+        return "Moderate"
+    if aqi_value <= 200:
+        return "High"
+    return "Severe"
 
-    return "Moderate" if avg_aqi <= 150 else "High"
+
+def _risk_color(cat: str) -> str:
+    return {
+        "Moderate": "#22c55e",  # Green
+        "High": "#f97316",      # Orange
+        "Severe": "#ef4444",    # Red
+    }.get(cat, "#22c55e")
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -94,6 +101,23 @@ def _fetch_snapshot_all_cities() -> Dict[str, Dict[str, Any]]:
             "is_live": bool(d.get("is_live", False)),
         }
     return out
+
+
+def _card(title: str, value: str, subtitle: str, accent: Optional[str] = None) -> str:
+    c = accent or "#00d4ff"
+    return f"""
+    <div style="
+        padding:16px 14px;
+        border-radius:14px;
+        background:rgba(255,255,255,0.06);
+        border:1px solid rgba(255,255,255,0.08);
+        box-shadow: 0 0 0 rgba(0,0,0,0);
+    ">
+        <div style="font-size:12px; color:#aab4c5; letter-spacing:0.02em;">{title}</div>
+        <div style="margin-top:8px; font-size:22px; font-weight:800; color:{c}; line-height:1;">{value}</div>
+        <div style="margin-top:8px; font-size:12px; color:#7a8599;">{subtitle}</div>
+    </div>
+    """
 
 
 # ---------------- Sidebar ----------------
@@ -112,14 +136,14 @@ with st.sidebar:
     )
 
 
-# --------------- Section 1: HERO ---------------
+# ---------------- Section 1: HERO (ONLY 3 lines) ----------------
 st.markdown(
     """
-    <div style="padding-top: 0.25rem;">
-      <div style="font-family: 'Orbitron', monospace; font-size: 2.05rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.12;">
+    <div style="padding-top: 0.35rem; text-align:left;">
+      <div style="font-family: 'Orbitron', monospace; font-size: 2.2rem; font-weight: 900; letter-spacing: -0.03em; line-height: 1.12;">
         VaayuVigyaan AI
       </div>
-      <div style="margin-top: 0.35rem; font-family: 'Inter', sans-serif; font-size: 1.05rem; color: #94a3b8; line-height: 1.45;">
+      <div style="margin-top: 0.35rem; font-family: 'Inter', sans-serif; font-size: 1.08rem; color: #94a3b8; line-height: 1.45;">
         Breathe Smarter with AI Air Intelligence — see the air, act with clarity
       </div>
       <div style="margin-top: 0.55rem; font-family: 'Inter', sans-serif; font-size: 0.92rem; color: #7db8d8; line-height: 1.35;">
@@ -130,50 +154,85 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
+
+# ---------------- Section 2: CTA BUTTONS (exactly 2) ----------------
 cta1, cta2 = st.columns(2, gap="large")
 with cta1:
-    if st.button("Predictor", use_container_width=True, type="primary"):
+    if st.button("AI Predictor", use_container_width=True, type="primary"):
         st.switch_page("pages/2_AI_Predictor.py")
 with cta2:
     if st.button("Dashboard", use_container_width=True, type="primary"):
         st.switch_page("pages/1_Dashboard.py")
 
-st.divider()
+st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
 
 
-# --------------- Section 2: LIVE INSIGHTS TICKER ---------------
+# ---------------- Section 3: LIVE SNAPSHOT ----------------
 snapshot = _fetch_snapshot_all_cities()
 
 if snapshot:
     worst_city = max(snapshot.items(), key=lambda kv: kv[1]["aqi"])[0]
     clean_city = min(snapshot.items(), key=lambda kv: kv[1]["aqi"])[0]
     avg_aqi = sum(v["aqi"] for v in snapshot.values()) / max(1, len(snapshot))
-    risk_level = _risk_label(avg_aqi)
+    avg_aqi_int = int(round(avg_aqi))
+    risk_cat = _risk_category_from_aqi(avg_aqi_int)
 else:
     worst_city = "-"
     clean_city = "-"
-    avg_aqi = 0
-    risk_level = "Moderate"
+    avg_aqi_int = 0
+    risk_cat = "Moderate"
 
+risk_color = _risk_color(risk_cat)
+
+# Use a single style system (custom cards)
 c1, c2, c3, c4 = st.columns(4, gap="large")
 with c1:
-    st.metric("Top polluted city", worst_city)
-    st.caption(f"AQI {snapshot[worst_city]['aqi']}" if worst_city in snapshot else "—")
+    st.markdown(
+        _card(
+            "Top polluted city",
+            str(snapshot[worst_city]["aqi"]) if worst_city in snapshot else "—",
+            f"{worst_city}" if worst_city in snapshot else "AQI snapshot",
+            accent="#ef4444",
+        ),
+        unsafe_allow_html=True,
+    )
 with c2:
-    st.metric("Cleanest city", clean_city)
-    st.caption(f"AQI {snapshot[clean_city]['aqi']}" if clean_city in snapshot else "—")
+    st.markdown(
+        _card(
+            "Cleanest city",
+            str(snapshot[clean_city]["aqi"]) if clean_city in snapshot else "—",
+            f"{clean_city}" if clean_city in snapshot else "AQI snapshot",
+            accent="#22c55e",
+        ),
+        unsafe_allow_html=True,
+    )
 with c3:
-    st.metric("Average AQI", str(int(round(avg_aqi))))
-    st.caption("Nationwide risk view (sample cities)")
+    st.markdown(
+        _card(
+            "Average AQI",
+            str(avg_aqi_int),
+            "Across sample cities",
+            accent="#38bdf8",
+        ),
+        unsafe_allow_html=True,
+    )
 with c4:
-    st.metric("Risk level", risk_level)
-    st.caption("Decision guidance tuned to AQI band")
+    st.markdown(
+        _card(
+            "Risk level",
+            risk_cat,
+            "Color-coded health view",
+            accent=risk_color,
+        ),
+        unsafe_allow_html=True,
+    )
 
 st.divider()
 
 
-# --------------- Section 3: AI PREDICTOR ---------------
+# ---------------- Section 4: AI PREDICTOR (logic unchanged; layout improved) ----------------
 st.subheader("🤖 AI Predictor")
 
 with st.spinner("Loading AI engine (GBR model)…"):
@@ -266,23 +325,46 @@ with col_result:
         }
 
     pred = st.session_state.home_prediction
+
     if pred is None:
         st.info("Adjust the sliders and press Get Guidance.")
     else:
         aqi_v = int(pred["aqi"])
         res = pred["res"]
 
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
         cA, cB = st.columns(2, gap="large")
         with cA:
-            st.metric("AQI", str(aqi_v))
-            st.caption(pred.get("category") or "")
+            st.markdown(
+                _card(
+                    "AQI",
+                    str(aqi_v),
+                    "AQI band",
+                    accent="#38bdf8" if aqi_v <= 150 else "#f97316",
+                ),
+                unsafe_allow_html=True,
+            )
             st.markdown(aqi_badge(aqi_v), unsafe_allow_html=True)
+            st.caption(pred.get("category") or "")
 
         with cB:
-            st.metric("Risk level", str(pred["risk_level"]))
+            # Risk stays in the same logic from existing app (Moderate vs High label)
+            st.markdown(
+                _card(
+                    "Risk level",
+                    str(pred["risk_level"]),
+                    "Model-based guidance",
+                    accent=_risk_color(
+                        "Moderate" if aqi_v <= 150 else "High"
+                    ),
+                ),
+                unsafe_allow_html=True,
+            )
             st.caption(f"Confidence: {res.get('confidence','—')}%")
 
-        st.divider()
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
         st.success(pred["action"])
         st.caption(pred["mask_hint"])
 
@@ -301,13 +383,13 @@ with col_result:
 st.divider()
 
 
-# --------------- Section 4: CITY DASHBOARD ---------------
+# ---------------- Section 5: CITY DASHBOARD ----------------
 st.subheader("🌆 City Air Dashboard")
 
 ordered = sorted(snapshot.items(), key=lambda kv: kv[1]["aqi"], reverse=True)
 city_cards = ordered[:12]
 
-rows = (len(city_cards) + 2) // 3
+rows = (len(city_cards) + 2) // 3  # max 3 columns
 for r in range(rows):
     row_cities = city_cards[r * 3 : r * 3 + 3]
     cols = st.columns(len(row_cities), gap="large")
@@ -322,7 +404,7 @@ for r in range(rows):
 st.divider()
 
 
-# --------------- Section 5: HEALTH PANEL ---------------
+# ---------------- Section 6: HEALTH PANEL (logic unchanged) ----------------
 st.subheader("🧠 AI Health Decision Panel")
 
 live_selected = get_live_air_data(city_sel)
@@ -376,7 +458,7 @@ with col_h4:
 st.divider()
 
 
-# --------------- Section 6: TRUST ---------------
+# ---------------- Section 7: TRUST ----------------
 st.subheader("Why VaayuVigyaan AI")
 
 trust_cards = [
@@ -389,8 +471,14 @@ trust_cards = [
 cols_t = st.columns(4, gap="large")
 for col, (icon, title, desc) in zip(cols_t, trust_cards):
     with col:
-        st.write(f"**{icon} {title}**")
-        st.caption(desc)
+        st.markdown(
+            _card(
+                f"{icon} {title}",
+                " ",
+                desc,
+                accent="#38bdf8",
+            ),
+            unsafe_allow_html=True,
+        )
 
-st.write("")
 
